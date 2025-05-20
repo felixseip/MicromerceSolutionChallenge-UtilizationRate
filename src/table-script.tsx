@@ -2,10 +2,10 @@ import {
   MaterialReactTable,
   useMaterialReactTable,
   type MRT_ColumnDef,
-} from "material-react-table";
-import { useMemo } from "react";
-import sourceData from "./source-data.json";
-import type { SourceDataType, TableDataType } from "./types";
+} from "material-react-table"
+import { useMemo } from "react"
+import sourceData from "./source-data.json"
+import type { SourceDataType, TableDataType } from "./types"
 
 /**
  * Example of how a tableData object should be structured.
@@ -22,21 +22,36 @@ import type { SourceDataType, TableDataType } from "./types";
 
 const tableData: TableDataType[] = (
   sourceData as unknown as SourceDataType[]
-).map((dataRow, index) => {
-  const person = `${dataRow?.employees?.firstname} - ...`;
+).map((dataRow) => {
+  const emp = dataRow.employees;
+  const util = emp?.workforceUtilisation;
+
+  const getUtilByMonth = (month: string) => {
+    const found = util?.lastThreeMonthsIndividually?.find(
+      (m) => m.month.toLowerCase() === month.toLowerCase()
+    );
+    return found ? `${(parseFloat(found.utilisationRate) * 100).toFixed(0)}%` : "0%";
+  };
 
   const row: TableDataType = {
-    person: `${person}`,
-    past12Months: `past12Months ${index} placeholder`,
-    y2d: `y2d ${index} placeholder`,
-    may: `may ${index} placeholder`,
-    june: `june ${index} placeholder`,
-    july: `july ${index} placeholder`,
-    netEarningsPrevMonth: `netEarningsPrevMonth ${index} placeholder`,
+    person: `${emp?.firstname} ${emp?.lastname}`,
+    past12Months: util?.utilisationRateLastTwelveMonths
+      ? `${(parseFloat(util.utilisationRateLastTwelveMonths) * 100).toFixed(0)}%`
+      : "0%",
+    y2d: util?.utilisationRateYearToDate
+      ? `${(parseFloat(util.utilisationRateYearToDate) * 100).toFixed(0)}%`
+      : "0%",
+    may: getUtilByMonth("May"),
+    june: getUtilByMonth("June"),
+    july: getUtilByMonth("July"),
+    netEarningsPrevMonth: util?.monthlyCostDifference
+      ? `${parseFloat(util.monthlyCostDifference).toFixed(0)} EUR`
+      : "0 EUR",
   };
 
   return row;
 });
+
 
 const Example = () => {
   const columns = useMemo<MRT_ColumnDef<TableDataType>[]>(

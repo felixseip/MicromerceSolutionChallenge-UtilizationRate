@@ -14,10 +14,12 @@ type Period = {
   timeBudget?: string;
 };
 
+// Changed the type of costsByMonth
 type CostsByMonth = {
   _applicationId: string;
   periods?: Period[];
-  costsByMonth?: { costs: string; month: string }[];
+  // costsByMonth?: { costs: string; month: string }[];
+  potentialEarningsByMonth?: { costs: string; month: string }[];
   _updatedDate: string;
   _definitionId: string;
   _createdDate: string;
@@ -127,12 +129,14 @@ export type SourceDataType = {
 };
 
 // Type for Table Column and Row Data
+
+// Updated the TableDataType
 export type TableDataType = {
   person: string;
   past12Months: string;
   y2d: string;
-  may: string;
   june: string;
   july: string;
+  august: string,
   netEarningsPrevMonth: string;
 };

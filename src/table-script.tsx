@@ -12,30 +12,78 @@ import type { SourceDataType, TableDataType } from "./types";
  *
  * Each `row` object has the following properties:
  * @prop {string} person - The full name of the employee.
- * @prop {number} past12Months - The value for the past 12 months.
- * @prop {number} y2d - The year-to-date value.
- * @prop {number} may - The value for May.
- * @prop {number} june - The value for June.
- * @prop {number} july - The value for July.
- * @prop {number} netEarningsPrevMonth - The net earnings for the previous month.
+ * @prop {string} past12Months - The utilization rate for the past 12 months.
+ * @prop {string} y2d - The year-to-date utilization rate.
+ * @prop {string} may - The utilization rate for May.
+ * @prop {string} june - The utilization rate for June.
+ * @prop {string} july - The utilization rate for July.
+ * @prop {string} netEarningsPrevMonth - The net earnings for the previous month in EUR.
  */
 
-const tableData: TableDataType[] = (
-  sourceData as unknown as SourceDataType[]
-).map((dataRow, index) => {
-  const person = `${dataRow?.employees?.firstname} - ...`;
+const tableData: TableDataType[] = (sourceData as unknown as SourceDataType[]).map((dataRow) => {
+  const personData = dataRow?.employees || dataRow?.externals;
+
+  if (!personData) {
+    return null;
+  }
+
+  const isActive = personData.status === 'active';
+
+  if (!isActive) {
+    return null;
+  }
+
+  const person = personData?.name.trim();
+
+  const workforceUtilisation = personData?.workforceUtilisation;
+
+  const formatUtilizationRate = (rate: string) => {
+    if (!rate) {
+      return 'N/A';
+    }
+    return `${Math.round(parseFloat(rate) * 100)}%`;
+  };
+
+  const lastThreeMonths = workforceUtilisation?.lastThreeMonthsIndividually || [];
+
+  const findMonthRate = (monthName: string) => {
+    const monthData = lastThreeMonths.find(m => m.month === monthName);
+    return monthData ? formatUtilizationRate(monthData.utilisationRate) : 'N/A';
+  };
+
+  const formatNetEarnings = (earnings: string | undefined) => {
+    if (!earnings)
+        return 'N/A';
+
+    const value = parseFloat(earnings);
+    const formattedValue = Math.abs(value).toLocaleString('de-DE', {
+      style: 'currency',
+      currency: 'EUR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    });
+
+    return dataRow?.externals ? `-${formattedValue}` : formattedValue;
+  };
 
   const row: TableDataType = {
-    person: `${person}`,
-    past12Months: `past12Months ${index} placeholder`,
-    y2d: `y2d ${index} placeholder`,
-    may: `may ${index} placeholder`,
-    june: `june ${index} placeholder`,
-    july: `july ${index} placeholder`,
-    netEarningsPrevMonth: `netEarningsPrevMonth ${index} placeholder`,
+    person: person,
+    past12Months: formatUtilizationRate(workforceUtilisation?.utilisationRateLastTwelveMonths),
+    y2d: formatUtilizationRate(workforceUtilisation?.utilisationRateYearToDate),
+    may: findMonthRate('May'),
+    june: findMonthRate('June'),
+    july: findMonthRate('July'),
+    netEarningsPrevMonth: formatNetEarnings(workforceUtilisation?.monthlyCostDifference),
   };
 
   return row;
+}).filter(Boolean) as TableDataType[];
+
+const filteredTableData = tableData.filter(row => {
+  const hasData = Object.entries(row).some(([key, value]) => {
+    return key !== 'person' && value !== 'N/A';
+  });
+  return hasData;
 });
 
 const Example = () => {
@@ -68,6 +116,19 @@ const Example = () => {
       {
         accessorKey: "netEarningsPrevMonth",
         header: "Net Earnings Prev Month",
+
+        Cell: ({ cell }) => {
+          const value = cell.getValue<string>();
+          if (value === 'N/A') return value;
+
+          // Style negative values (for external contractors) in red
+          const isNegative = value.startsWith('-');
+          return (
+            <span style={{ color: isNegative ? '#ff4d4f' : '#52c41a' }}>
+              {value}
+            </span>
+          );
+        },
       },
     ],
     []
@@ -75,7 +136,16 @@ const Example = () => {
 
   const table = useMaterialReactTable({
     columns,
-    data: tableData,
+    data: filteredTableData,
+    enableSorting: true,
+    initialState: {
+      sorting: [
+        {
+          id: 'past12Months',
+          desc: true,
+        },
+      ],
+    },
   });
 
   return <MaterialReactTable table={table} />;

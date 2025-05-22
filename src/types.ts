@@ -18,6 +18,7 @@ type CostsByMonth = {
   _applicationId: string;
   periods?: Period[];
   costsByMonth?: { costs: string; month: string }[];
+  potentialEarningsByMonth?: { costs: string; month: string }[];
   _updatedDate: string;
   _definitionId: string;
   _createdDate: string;
@@ -99,6 +100,7 @@ type Employee = {
 type ExternalEmployee = Employee & {
   salutation?: string;
   email?: string;
+  name?: string;
 };
 
 type EmploymentStatus = {
@@ -128,6 +130,8 @@ export type SourceDataType = {
 
 // Type for Table Column and Row Data
 export type TableDataType = {
+  person_status: string;
+  serialNumber: number;
   person: string;
   past12Months: string;
   y2d: string;

@@ -2,43 +2,147 @@ import {
   MaterialReactTable,
   useMaterialReactTable,
   type MRT_ColumnDef,
-} from "material-react-table";
-import { useMemo } from "react";
-import sourceData from "./source-data.json";
-import type { SourceDataType, TableDataType } from "./types";
+} from "material-react-table"; // Importing Material React Table components and types
+import { useMemo } from "react"; // Importing useMemo hook from React
+import sourceData from "./source-data.json"; // Importing source data from a local JSON file
+import type { SourceDataType, TableDataType } from "./types"; // Importing TypeScript types
+import { format, subMonths } from "date-fns"; // Importing date formatting utilities
 
-/**
- * Example of how a tableData object should be structured.
- *
- * Each `row` object has the following properties:
- * @prop {string} person - The full name of the employee.
- * @prop {number} past12Months - The value for the past 12 months.
- * @prop {number} y2d - The year-to-date value.
- * @prop {number} may - The value for May.
- * @prop {number} june - The value for June.
- * @prop {number} july - The value for July.
- * @prop {number} netEarningsPrevMonth - The net earnings for the previous month.
- */
+//  Helper: Get Net Earning for a specific month (e.g. "June" format: "yyyy-MM")
+//  This function receives the costsByMonth object and a targetMonth string.
+//  It searches for the entry in potentialEarningsByMonth that matches the targetMonth.
+//  If found, it returns the costs with "EUR" appended, otherwise returns "-".
+function getNetEarningsForMonth(
+  costsByMonth:
+    | {
+        _applicationId: string;
+        potentialEarningsByMonth: { costs: string; month: string }[]; // Array of earnings by month
+        _updatedDate: string;
+        _definitionId: string;
+        _createdDate: string;
+        periods?: undefined;
+      }
+    | {
+        _applicationId: string;
+        potentialEarningsByMonth: { costs: string; month: string }[]; // Array of earnings by month
+        _updatedDate: string;
+        _definitionId: string;
+        _createdDate: string;
+        periods?: undefined;
+      }
+    | {
+        _applicationId: string;
+        potentialEarningsByMonth: { costs: string; month: string }[]; // Array of earnings by month
+        _updatedDate: string;
+        _definitionId: string;
+        _createdDate: string;
+        periods?: undefined;
+      }
+    | {
+        _updatedDate: string;
+        _createdDate: string;
+        _applicationId: string;
+        periods: { monthlySalary: string; start: string; end: string }[];
+        potentialEarningsByMonth: { costs: string; month: string }[];
+        _definitionId: string;
+      }
+    | {
+        _applicationId: string;
+        potentialEarningsByMonth: { costs: string; month: string }[];
+        _updatedDate: string;
+        _definitionId: string;
+        _createdDate: string;
+        periods?: undefined;
+      }
+    | {
+        _updatedDate: string;
+        _createdDate: string;
+        _applicationId: string;
+        periods: { monthlySalary: string; start: string; end: string }[];
+        potentialEarningsByMonth: { costs: string; month: string }[];
+        _definitionId: string;
+      }
+    | {
+        _applicationId: string;
+        potentialEarningsByMonth: { costs: string; month: string }[];
+        _updatedDate: string;
+        _definitionId: string;
+        _createdDate: string;
+        periods?: undefined;
+      }
+    | {
+        _applicationId: string;
+        potentialEarningsByMonth: { costs: string; month: string }[];
+        _updatedDate: string;
+        _definitionId: string;
+        _createdDate: string;
+        periods?: undefined;
+      }
+    | {
+        _updatedDate: string;
+        _createdDate: string;
+        _applicationId: string;
+        periods: { monthlySalary: string; start: string; end: string }[];
+        potentialEarningsByMonth: { costs: string; month: string }[];
+        _definitionId: string;
+      }
+    | {
+        _applicationId: string;
+        potentialEarningsByMonth: { costs: string; month: string }[];
+        _updatedDate: string;
+        _definitionId: string;
+        _createdDate: string;
+        periods?: undefined;
+      },
+  targetMonth: any
+) {
+  if (!costsByMonth?.potentialEarningsByMonth) return "-";
+  const entry = costsByMonth.potentialEarningsByMonth.find(
+    (e) => e.month === targetMonth
+  );
+  return entry ? `${entry.costs} EUR` : "-";
+}
+
+//  Helper: Get utilization for a specific month (e.g. "June")
+function getUtilizationForMonth(lastThreeMonths: any[], monthName: string) {
+  if (!lastThreeMonths) return "-";
+  const entry = lastThreeMonths.find((m) =>
+    m.month.toLowerCase().startsWith(monthName.toLowerCase())
+  );
+  return entry ? `${Math.round(Number(entry.utilisationRate) * 100)}%` : "-";
+}
+
+// Actual date and previous month calculation(format "yyyy-MM")
+const now = new Date();
+const prevMonth = format(subMonths(now, 1), "yyyy-MM");
 
 const tableData: TableDataType[] = (
-  sourceData as unknown as SourceDataType[]
-).map((dataRow, index) => {
-  const person = `${dataRow?.employees?.firstname} - ...`;
+  Array.isArray(sourceData) ? sourceData : [sourceData]
+)
+  .filter((entry) => entry.employees && entry.employees.status === "active")
+  .map((entry) => {
+    const emp = entry.employees!;
+    const util = emp.workforceUtilisation || {};
+    const costsByMonth = emp.costsByMonth || {};
 
-  const row: TableDataType = {
-    person: `${person}`,
-    past12Months: `past12Months ${index} placeholder`,
-    y2d: `y2d ${index} placeholder`,
-    may: `may ${index} placeholder`,
-    june: `june ${index} placeholder`,
-    july: `july ${index} placeholder`,
-    netEarningsPrevMonth: `netEarningsPrevMonth ${index} placeholder`,
-  };
+    return {
+      person: `${emp.firstname} ${emp.lastname}`,
+      past12Months:
+        util.utilisationRateLastTwelveMonths !== undefined
+          ? `${Math.round(Number(util.utilisationRateLastTwelveMonths) * 100)}%`
+          : "-",
+      y2d:
+        util.utilisationRateYearToDate !== undefined
+          ? `${Math.round(Number(util.utilisationRateYearToDate) * 100)}%`
+          : "-",
+      may: getUtilizationForMonth(util.lastThreeMonthsIndividually, "May"),
+      june: getUtilizationForMonth(util.lastThreeMonthsIndividually, "June"),
+      july: getUtilizationForMonth(util.lastThreeMonthsIndividually, "July"),
+      netEarningsPrevMonth: getNetEarningsForMonth(costsByMonth, prevMonth),
+    };
+  });
 
-  return row;
-});
-
-const Example = () => {
+const Table = () => {
   const columns = useMemo<MRT_ColumnDef<TableDataType>[]>(
     () => [
       {
@@ -76,9 +180,10 @@ const Example = () => {
   const table = useMaterialReactTable({
     columns,
     data: tableData,
+    
   });
 
   return <MaterialReactTable table={table} />;
 };
 
-export default Example;
+export default Table;

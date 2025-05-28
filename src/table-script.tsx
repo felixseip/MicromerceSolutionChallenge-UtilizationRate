@@ -6,65 +6,69 @@ import {
 import { useMemo } from "react";
 import sourceData from "./source-data.json";
 import type { SourceDataType, TableDataType } from "./types";
+import { formatCurrency } from "./utils/format-currency";
+import { formatPercent } from "./utils/format-percent";
 
-/**
- * Example of how a tableData object should be structured.
- *
- * Each `row` object has the following properties:
- * @prop {string} person - The full name of the employee.
- * @prop {number} past12Months - The value for the past 12 months.
- * @prop {number} y2d - The year-to-date value.
- * @prop {number} may - The value for May.
- * @prop {number} june - The value for June.
- * @prop {number} july - The value for July.
- * @prop {number} netEarningsPrevMonth - The net earnings for the previous month.
- */
+const displayMonths = ["May", "June", "July"];
 
-const tableData: TableDataType[] = (
-  sourceData as unknown as SourceDataType[]
-).map((dataRow, index) => {
-  const person = `${dataRow?.employees?.firstname} - ...`;
+const tableData: TableDataType[] = (sourceData as unknown as SourceDataType[])
+  .map((dataRow) => {
+    const personSource =
+      dataRow.employees?.employmentStatus?.employmentStatus !== "Inaktiv"
+        ? dataRow.employees
+        : dataRow.externals?.employmentStatus?.employmentStatus !== "Inaktiv"
+        ? dataRow.externals
+        : null;
 
-  const row: TableDataType = {
-    person: `${person}`,
-    past12Months: `past12Months ${index} placeholder`,
-    y2d: `y2d ${index} placeholder`,
-    may: `may ${index} placeholder`,
-    june: `june ${index} placeholder`,
-    july: `july ${index} placeholder`,
-    netEarningsPrevMonth: `netEarningsPrevMonth ${index} placeholder`,
-  };
+    if (!personSource) return null;
 
-  return row;
-});
+    const firstname = personSource.firstname || "";
+    const lastname = personSource.lastname || "";
+    const util = personSource.workforceUtilisation;
+
+    const past12Months = util?.utilisationRateLastTwelveMonths
+      ? formatPercent(parseFloat(util.utilisationRateLastTwelveMonths))
+      : "-";
+    const y2d = util?.utilisationRateYearToDate
+      ? formatPercent(parseFloat(util.utilisationRateYearToDate))
+      : "-";
+
+    const lastThree = util?.lastThreeMonthsIndividually || [];
+    const monthRates = displayMonths.reduce((acc, month) => {
+      const entry = lastThree.find((m) => m.month === month);
+      acc[month.toLowerCase()] = entry
+        ? formatPercent(parseFloat(entry.utilisationRate))
+        : "-";
+      return acc;
+    }, {} as Record<string, string>);
+
+    const netEarningsPrevMonth = util?.monthlyCostDifference
+      ? formatCurrency(parseFloat(util.monthlyCostDifference))
+      : "-";
+
+    const row: TableDataType = {
+      person: `${firstname} ${lastname}`.trim(),
+      past12Months,
+      y2d,
+      may: monthRates["may"],
+      june: monthRates["june"],
+      july: monthRates["july"],
+      netEarningsPrevMonth,
+    };
+
+    return row;
+  })
+  .filter((row): row is TableDataType => row !== null);
 
 const Example = () => {
   const columns = useMemo<MRT_ColumnDef<TableDataType>[]>(
     () => [
-      {
-        accessorKey: "person",
-        header: "Person",
-      },
-      {
-        accessorKey: "past12Months",
-        header: "Past 12 Months",
-      },
-      {
-        accessorKey: "y2d",
-        header: "Y2D",
-      },
-      {
-        accessorKey: "may",
-        header: "May",
-      },
-      {
-        accessorKey: "june",
-        header: "June",
-      },
-      {
-        accessorKey: "july",
-        header: "July",
-      },
+      { accessorKey: "person", header: "Person" },
+      { accessorKey: "past12Months", header: "Past 12 Months" },
+      { accessorKey: "y2d", header: "Y2D" },
+      { accessorKey: "may", header: "May" },
+      { accessorKey: "june", header: "June" },
+      { accessorKey: "july", header: "July" },
       {
         accessorKey: "netEarningsPrevMonth",
         header: "Net Earnings Prev Month",
@@ -73,10 +77,7 @@ const Example = () => {
     []
   );
 
-  const table = useMaterialReactTable({
-    columns,
-    data: tableData,
-  });
+  const table = useMaterialReactTable({ columns, data: tableData });
 
   return <MaterialReactTable table={table} />;
 };

@@ -20,23 +20,77 @@ import type { SourceDataType, TableDataType } from "./types";
  * @prop {number} netEarningsPrevMonth - The net earnings for the previous month.
  */
 
-const tableData: TableDataType[] = (
-  sourceData as unknown as SourceDataType[]
-).map((dataRow, index) => {
-  const person = `${dataRow?.employees?.firstname} - ...`;
+// Filtering the data to only use the employees or externals who are active
 
-  const row: TableDataType = {
-    person: `${person}`,
-    past12Months: `past12Months ${index} placeholder`,
-    y2d: `y2d ${index} placeholder`,
-    may: `may ${index} placeholder`,
-    june: `june ${index} placeholder`,
-    july: `july ${index} placeholder`,
-    netEarningsPrevMonth: `netEarningsPrevMonth ${index} placeholder`,
-  };
+const tableData: TableDataType[] = (sourceData as unknown as SourceDataType[])
+  .filter((item) => {
+    const personData = item.employees ?? item.externals;
+    return personData?.status === "active";
+  })
+  .map((dataRow) => {
+    // Joining both employee and external  employees into personData
+    const personData = dataRow.employees ?? dataRow.externals;
 
-  return row;
-});
+    // console.log(personData);
+    const person = `${personData?.name ?? "-"}`; // extracting the employees name
+
+    // function to format the data into percentage
+    const percentageConverter = (data: string): string => {
+      const percentage = `${(parseFloat(data) * 100).toFixed(0)}%`;
+      return percentage;
+    };
+
+    // extracting the utilization rate of past 12 months
+    const pastYearUtilization = percentageConverter(
+      personData?.workforceUtilisation?.utilisationRateLastTwelveMonths ?? ""
+    );
+
+    // extracting the Y2d data
+    const y2dData = percentageConverter(
+      personData?.workforceUtilisation?.utilisationRateYearToDate ?? ""
+    );
+
+    // creating an array of past three months
+    const lastThreeMonths =
+      personData?.workforceUtilisation?.lastThreeMonthsIndividually ?? [];
+
+    console.log(personData);
+
+    // function to extract utilization rate of particular month
+    const findMonth = (name: string): string => {
+      const entry = lastThreeMonths?.find((item) => item.month === name);
+      const percentage = percentageConverter(entry?.utilisationRate ?? "");
+      return percentage;
+    };
+
+    const formatNetEarningsPrevMonth = (): string => {
+      // getting todays date to calculate the previous month date
+      const today = new Date();
+      const previousMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+      const monthDate = previousMonth.toISOString().slice(0, 7);
+
+      const earningsEntry =
+        personData?.costsByMonth?.potentialEarningsByMonth?.find(
+          (item) => item.month === monthDate
+        );
+
+      const earnings = parseFloat(earningsEntry?.costs ?? "0");
+
+      return `${earnings >= 0 ? "" : "-"}${Math.abs(earnings)} EUR`;
+    };
+
+    const row: TableDataType = {
+      person: `${person}`,
+      past12Months: pastYearUtilization,
+      y2d: y2dData,
+      june: findMonth("June"),
+      july: findMonth("July"),
+      august: findMonth("August"),
+      netEarningsPrevMonth: formatNetEarningsPrevMonth(),
+    };
+
+    return row;
+  });
 
 const Example = () => {
   const columns = useMemo<MRT_ColumnDef<TableDataType>[]>(
@@ -53,10 +107,7 @@ const Example = () => {
         accessorKey: "y2d",
         header: "Y2D",
       },
-      {
-        accessorKey: "may",
-        header: "May",
-      },
+
       {
         accessorKey: "june",
         header: "June",
@@ -64,6 +115,10 @@ const Example = () => {
       {
         accessorKey: "july",
         header: "July",
+      },
+      {
+        accessorKey: "august",
+        header: "August",
       },
       {
         accessorKey: "netEarningsPrevMonth",

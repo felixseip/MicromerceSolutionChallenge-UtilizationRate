@@ -1,84 +1,123 @@
+import React, { useMemo, useEffect } from "react";    
 import {
   MaterialReactTable,
   useMaterialReactTable,
   type MRT_ColumnDef,
 } from "material-react-table";
-import { useMemo } from "react";
 import sourceData from "./source-data.json";
-import type { SourceDataType, TableDataType } from "./types";
+import type { SourceDataType, TableDataType as BaseTableDataType } from "./types";
 
-/**
- * Example of how a tableData object should be structured.
- *
- * Each `row` object has the following properties:
- * @prop {string} person - The full name of the employee.
- * @prop {number} past12Months - The value for the past 12 months.
- * @prop {number} y2d - The year-to-date value.
- * @prop {number} may - The value for May.
- * @prop {number} june - The value for June.
- * @prop {number} july - The value for July.
- * @prop {number} netEarningsPrevMonth - The net earnings for the previous month.
- */
+// Extend base type to allow dynamic month keys
+type ExtendedTableDataType = BaseTableDataType & Record<string, string>;
 
-const tableData: TableDataType[] = (
-  sourceData as unknown as SourceDataType[]
-).map((dataRow, index) => {
-  const person = `${dataRow?.employees?.firstname} - ...`;
-
-  const row: TableDataType = {
-    person: `${person}`,
-    past12Months: `past12Months ${index} placeholder`,
-    y2d: `y2d ${index} placeholder`,
-    may: `may ${index} placeholder`,
-    june: `june ${index} placeholder`,
-    july: `july ${index} placeholder`,
-    netEarningsPrevMonth: `netEarningsPrevMonth ${index} placeholder`,
-  };
-
-  return row;
-});
-
-const Example = () => {
-  const columns = useMemo<MRT_ColumnDef<TableDataType>[]>(
-    () => [
-      {
-        accessorKey: "person",
-        header: "Person",
-      },
-      {
-        accessorKey: "past12Months",
-        header: "Past 12 Months",
-      },
-      {
-        accessorKey: "y2d",
-        header: "Y2D",
-      },
-      {
-        accessorKey: "may",
-        header: "May",
-      },
-      {
-        accessorKey: "june",
-        header: "June",
-      },
-      {
-        accessorKey: "july",
-        header: "July",
-      },
-      {
-        accessorKey: "netEarningsPrevMonth",
-        header: "Net Earnings Prev Month",
-      },
-    ],
-    []
-  );
-
-  const table = useMaterialReactTable({
-    columns,
-    data: tableData,
-  });
-
-  return <MaterialReactTable table={table} />;
+// Helper Functions
+const formatPercentage = (value: string | undefined): string => {
+  if (!value || value.trim() === "") return "N/A";
+  const num = parseFloat(value);
+  if (isNaN(num)) return "N/A";
+  return `${(num * 100).toFixed(0)}%`;
 };
 
-export default Example;
+const formatCurrency = (value: string | undefined): string => {
+  if (!value || value.trim() === "") return "N/A";
+  const num = parseFloat(value);
+  if (isNaN(num)) return "N/A";
+  return `${num.toFixed(0)} EUR`;
+};
+
+const getMonthlyUtilisation = (
+  data: { month: string; utilisationRate: string }[] | undefined,
+  monthName: string
+): string => {
+  if (!data) return "N/A";
+  const found = data.find(
+    (m) => m.month.toLowerCase() === monthName.toLowerCase()
+  );
+  return found ? formatPercentage(found.utilisationRate) : "N/A";
+};
+
+const WorkforceUtilizationTable: React.FC = () => {
+  // Compute last three months list
+  const lastThreeMonths = useMemo(() => {
+    const now = new Date();
+    return Array.from({ length: 3 }, (_, i) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - (2 - i));
+      const monthName = date.toLocaleString("default", { month: "long" });
+      const accessor = monthName.toLowerCase();
+      return { monthName, accessor };
+    });
+  }, []);
+
+  // Prepare table data
+  const tableData = useMemo<ExtendedTableDataType[]>(() => {
+    return (sourceData as SourceDataType[])
+      .filter(
+        (row) =>
+          row.employees?.status === "active" ||
+          row.externals?.employmentStatus?.employmentStatus === "Aktiv"
+      )
+      .map((row) => {
+        const person = row.employees?.name || row.externals?.name || "Unknown";
+        const wf = row.employees?.workforceUtilisation || row.externals?.workforceUtilisation;
+
+        const baseRow: any = {
+          person,
+          past12Months: formatPercentage(wf?.utilisationRateLastTwelveMonths),
+          y2d: formatPercentage(wf?.utilisationRateYearToDate),
+          netEarningsPrevMonth: formatCurrency(wf?.monthlyCostDifference),
+        };
+
+        lastThreeMonths.forEach(({ monthName, accessor }) => {
+          baseRow[accessor] = getMonthlyUtilisation(
+            wf?.lastThreeMonthsIndividually,
+            monthName
+          );
+        });
+
+        return baseRow;
+      });
+  }, [lastThreeMonths]);
+
+  // Debug logs
+  useEffect(() => {
+    console.log("Last three months:", lastThreeMonths);
+    console.log("Computed tableData:", tableData);
+  }, [lastThreeMonths, tableData]);
+
+  // Column definitions
+  const columns = useMemo<MRT_ColumnDef<ExtendedTableDataType>[]>(
+    () => {
+      const baseCols: MRT_ColumnDef<ExtendedTableDataType>[] = [
+        { accessorKey: "person", header: "Person" },
+        { accessorKey: "past12Months", header: "Past 12 Months" },
+        { accessorKey: "y2d", header: "Y2D" },
+      ];
+
+      const monthCols = lastThreeMonths.map(({ monthName, accessor }) => ({
+        accessorKey: accessor as keyof ExtendedTableDataType,
+        header: monthName,
+      }));
+
+      const endCol: MRT_ColumnDef<ExtendedTableDataType> = {
+        accessorKey: "netEarningsPrevMonth",
+        header: "Net Earnings Prev Month",
+      };
+
+      return [...baseCols, ...monthCols, endCol];
+    }, [lastThreeMonths]
+  );
+
+  if (tableData.length === 0) {
+    return <div>No data to display</div>;
+  }
+
+  const table = useMaterialReactTable({ columns, data: tableData });
+
+  return (
+    <div style={{ padding: "1rem" }}>
+      <MaterialReactTable table={table} />
+    </div>
+  );
+};
+
+export default WorkforceUtilizationTable;

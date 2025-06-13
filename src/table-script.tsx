@@ -31,7 +31,6 @@ const tableData: TableDataType[] = (sourceData as unknown as SourceDataType[])
     // Joining both employee and external  employees into personData
     const personData = dataRow.employees ?? dataRow.externals;
 
-    // console.log(personData);
     const person = `${personData?.name ?? "-"}`; // extracting the employees name
 
     // function to format the data into percentage

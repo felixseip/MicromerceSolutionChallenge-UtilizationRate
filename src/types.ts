@@ -17,7 +17,7 @@ type Period = {
 type CostsByMonth = {
   _applicationId: string;
   periods?: Period[];
-  costsByMonth?: { costs: string; month: string }[];
+  potentialEarningsByMonth?: { costs: string; month: string }[];
   _updatedDate: string;
   _definitionId: string;
   _createdDate: string;
@@ -131,7 +131,7 @@ export type TableDataType = {
   person: string;
   past12Months: string;
   y2d: string;
-  may: string;
+  august: string; //The last three months doesnot have May but August so I changed it to August
   june: string;
   july: string;
   netEarningsPrevMonth: string;

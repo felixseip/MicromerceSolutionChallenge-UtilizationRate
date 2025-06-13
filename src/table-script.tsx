@@ -20,23 +20,50 @@ import type { SourceDataType, TableDataType } from "./types";
  * @prop {number} netEarningsPrevMonth - The net earnings for the previous month.
  */
 
-const tableData: TableDataType[] = (
-  sourceData as unknown as SourceDataType[]
-).map((dataRow, index) => {
-  const person = `${dataRow?.employees?.firstname} - ...`;
+const tableData: TableDataType[] = (sourceData as unknown as SourceDataType[])
+  .splice(0, 14)
+  .map((dataRow, index) => {
+    let person;
+    let netEarningsPrevMonth: number = 0;
+    let past12Months: number;
+    let y2d: number;
+    let may: number;
+    let june: number;
+    let july: number;
+    if (
+      dataRow.employees !== undefined &&
+      dataRow.employees !== null &&
+      dataRow.employees.status.toLowerCase() === "active"
+    ) {
+      person = `${dataRow.employees.firstname} ${dataRow.employees.lastname}`;
+      netEarningsPrevMonth = Number(
+        dataRow.employees.statusAggregation?.monthlySalary
+      );
+    } else if (
+      dataRow.externals !== undefined &&
+      dataRow.externals !== null &&
+      dataRow.externals.status.toLowerCase() === "active"
+    ) {
+      person = `${dataRow.externals.firstname} ${dataRow.externals.lastname}`;
+      netEarningsPrevMonth = Number(
+        dataRow.externals.statusAggregation?.monthlySalary
+      );
+    }
 
-  const row: TableDataType = {
-    person: `${person}`,
-    past12Months: `past12Months ${index} placeholder`,
-    y2d: `y2d ${index} placeholder`,
-    may: `may ${index} placeholder`,
-    june: `june ${index} placeholder`,
-    july: `july ${index} placeholder`,
-    netEarningsPrevMonth: `netEarningsPrevMonth ${index} placeholder`,
-  };
+    const row: TableDataType = {
+      person: `${person}`,
+      past12Months: `past12Months ${index} placeholder`,
+      y2d: `y2d ${index} placeholder`,
+      may: `may ${index} placeholder`,
+      june: `june ${index} placeholder`,
+      july: `july ${index} placeholder`,
+      netEarningsPrevMonth: `${
+        Number.isNaN(netEarningsPrevMonth) ? 0 : netEarningsPrevMonth
+      } EUR`,
+    };
 
-  return row;
-});
+    return row;
+  });
 
 const Example = () => {
   const columns = useMemo<MRT_ColumnDef<TableDataType>[]>(
